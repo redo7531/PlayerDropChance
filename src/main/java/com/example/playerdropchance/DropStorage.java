@@ -1,35 +1,25 @@
 package com.example.playerdropchance;
 
+import com.mojang.serialization.DataResult;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Holds the item stacks that were NOT dropped at death ("kept" stacks)
- * until the owning player respawns.
- *
- * Two layers of storage are used so items are never silently lost:
- *  1. An in-memory map, for the common case (player is on the death screen
- *     or respawns normally in the same server session).
- *  2. A disk-backed NBT file per pending player, written synchronously at
- *     death, so items also survive a full server restart while a player is
- *     disconnected between dying and respawning.
- *
- * Both layers are cleared together once the items are restored.
- */
 public final class DropStorage {
     private static final Map<UUID, List<ItemStack>> PENDING = new ConcurrentHashMap<>();
     private static Path storageDir;
@@ -39,19 +29,22 @@ public final class DropStorage {
 
     public static void init(Path configDir) {
         storageDir = configDir.resolve("playerdropchance_pending");
-        storageDir.toFile().mkdirs();
+        try {
+            Files.createDirectories(storageDir);
+        } catch (IOException e) {
+            PlayerDropChance.LOGGER.error("[PlayerDropChance] Failed to create storage directory {}", storageDir, e);
+        }
     }
 
     public static boolean hasPending(UUID id) {
         if (PENDING.containsKey(id)) {
             return true;
         }
-        return storageDir != null && storageDir.resolve(id + ".dat").toFile().exists();
+        return storageDir != null && Files.exists(storageDir.resolve(id + ".dat"));
     }
 
     public static void store(ServerPlayer player, List<ItemStack> stacks) {
         UUID id = player.getUUID();
-        // Keep copies in memory; this is the fast, primary path.
         PENDING.put(id, stacks);
         writeToDisk(player, id, stacks);
     }
@@ -78,13 +71,12 @@ public final class DropStorage {
                 if (stack == null || stack.isEmpty()) {
                     continue;
                 }
-                Tag saved = stack.save(registries);
-                if (saved != null) {
-                    list.add(saved);
-                }
+                DataResult<Tag> encoded = ItemStack.CODEC.encodeStart(
+                        registries.createSerializationContext(NbtOps.INSTANCE), stack);
+                encoded.result().ifPresent(list::add);
             }
             root.put("Items", list);
-            NbtIo.write(root, storageDir.resolve(id + ".dat").toFile());
+            NbtIo.write(root, storageDir.resolve(id + ".dat"));
         } catch (IOException e) {
             PlayerDropChance.LOGGER.warn(
                     "[PlayerDropChance] Failed to persist pending items for {} to disk; "
@@ -97,8 +89,8 @@ public final class DropStorage {
         if (storageDir == null) {
             return null;
         }
-        File file = storageDir.resolve(id + ".dat").toFile();
-        if (!file.exists()) {
+        Path file = storageDir.resolve(id + ".dat");
+        if (!Files.exists(file)) {
             return null;
         }
         try {
@@ -107,11 +99,16 @@ public final class DropStorage {
                 return null;
             }
             HolderLookup.Provider registries = player.registryAccess();
-            ListTag list = root.getList("Items", Tag.TAG_COMPOUND);
+            ListTag list = root.getList("Items");
             List<ItemStack> result = new ArrayList<>();
             for (int i = 0; i < list.size(); i++) {
-                CompoundTag itemTag = list.getCompound(i);
-                ItemStack.parse(registries, itemTag).ifPresent(result::add);
+                Optional<CompoundTag> itemTag = list.getCompound(i);
+                if (itemTag.isEmpty()) {
+                    continue;
+                }
+                DataResult<ItemStack> decoded = ItemStack.CODEC.parse(
+                        registries.createSerializationContext(NbtOps.INSTANCE), itemTag.get());
+                decoded.result().ifPresent(result::add);
             }
             return result;
         } catch (IOException e) {
@@ -125,6 +122,10 @@ public final class DropStorage {
         if (storageDir == null) {
             return;
         }
-        storageDir.resolve(id + ".dat").toFile().delete();
+        try {
+            Files.deleteIfExists(storageDir.resolve(id + ".dat"));
+        } catch (IOException e) {
+            PlayerDropChance.LOGGER.warn("[PlayerDropChance] Failed to delete pending-items file for {}", id, e);
+        }
     }
 }
