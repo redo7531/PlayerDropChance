@@ -99,7 +99,8 @@ public final class DropStorage {
                 return null;
             }
             HolderLookup.Provider registries = player.registryAccess();
-            ListTag list = root.getList("Items");
+            Optional<ListTag> listOpt = root.getList("Items");
+            ListTag list = listOpt.orElseGet(ListTag::new);
             List<ItemStack> result = new ArrayList<>();
             for (int i = 0; i < list.size(); i++) {
                 Optional<CompoundTag> itemTag = list.getCompound(i);
