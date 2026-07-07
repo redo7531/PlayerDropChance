@@ -73,7 +73,7 @@ public abstract class PlayerDeathMixin {
 
         PlayerDropChance.LOGGER.info(
                 "[PlayerDropChance] {} died: {} stack(s) dropped, {} stack(s) held for respawn (chance={}).",
-                player.getGameProfile().getName(), droppedCount, kept.size(), dropChance);
+                player.getGameProfile().name(), droppedCount, kept.size(), dropChance);
 
         // Prevent vanilla's own drop logic from running afterwards, which
         // would otherwise drop everything a second time.
