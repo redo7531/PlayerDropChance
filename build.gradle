@@ -11,8 +11,6 @@ base {
 }
 
 repositories {
-    // Loom adds the essential Minecraft/Fabric maven repositories automatically.
-    // Add extra repositories here only if you depend on other mods.
 }
 
 dependencies {
@@ -34,9 +32,6 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
     it.options.encoding = "UTF-8"
-    // Minecraft 26.1.x ships compiled for Java 25; the mod must target the
-    // same release to remain binary compatible in this non-remapping
-    // (unobfuscated) Loom setup.
     it.options.release = 25
 }
 
@@ -50,7 +45,5 @@ publishing {
             from components.java
         }
     }
-    repositories {
-        // Add repositories to publish to here, if desired.
-    }
+}
 }
