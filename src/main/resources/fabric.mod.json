@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "playerdropchance",
+  "version": "${version}",
+  "name": "PlayerDropChance",
+  "description": "Server-side mod: on player death, each item stack (inventory, armor, offhand) independently has a configurable chance to drop. The rest is safely restored on respawn. No client mod required.",
+  "authors": [
+    "Your Name"
+  ],
+  "contact": {},
+  "license": "CC0-1.0",
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "com.example.playerdropchance.PlayerDropChance"
+    ]
+  },
+  "mixins": [
+    "playerdropchance.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "26.1.2",
+    "fabric-api": "*",
+    "java": ">=25"
+  }
+}
