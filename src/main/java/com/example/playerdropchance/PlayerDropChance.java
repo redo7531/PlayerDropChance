@@ -71,6 +71,6 @@ public class PlayerDropChance implements ModInitializer {
         }
 
         LOGGER.info("[PlayerDropChance] Restored {} kept item stack(s) to {} after respawn.",
-                restored.size(), player.getGameProfile().getName());
+                restored.size(), player.getGameProfile().name());
     }
 }
